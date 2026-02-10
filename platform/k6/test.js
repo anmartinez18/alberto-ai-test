@@ -29,13 +29,22 @@ export default function () {
 
   let createRes = http.post(`${BASE_URL}/v1/requests`, payload, params);
   
+  let isJson = true;
+  let responseBody;
+  try {
+    responseBody = JSON.parse(createRes.body);
+  } catch (e) {
+    isJson = false;
+  }
+
   check(createRes, {
     'create status is 201 or 200': (r) => r.status === 201 || r.status === 200,
-    'id is present': (r) => JSON.parse(r.body).id !== undefined,
+    'create response is valid json': () => isJson,
+    'id is present in response': () => isJson && responseBody.id !== undefined,
   });
 
-  if (createRes.status === 201 || createRes.status === 200) {
-    let id = JSON.parse(createRes.body).id;
+  if (isJson && responseBody.id) {
+    let id = responseBody.id;
 
     let processRes = http.post(`${BASE_URL}/v1/requests/${id}/process`);
     check(processRes, {
@@ -44,9 +53,19 @@ export default function () {
 
     sleep(0.5); 
     let statusRes = http.get(`${BASE_URL}/v1/requests/${id}`);
+    
+    let isStatusJson = true;
+    let statusBody;
+    try {
+      statusBody = JSON.parse(statusRes.body);
+    } catch (e) {
+      isStatusJson = false;
+    }
+
     check(statusRes, {
-      'status is retrieved': (r) => r.status === 200,
-      'status is valid': (r) => ['queued', 'processing', 'sent', 'failed'].includes(JSON.parse(r.body).status),
+      'status request is 200': (r) => r.status === 200,
+      'status response is valid json': () => isStatusJson,
+      'status is valid string': () => isStatusJson && ['queued', 'processing', 'sent', 'failed'].includes(statusBody.status),
     });
   }
 
